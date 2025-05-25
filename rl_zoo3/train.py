@@ -121,6 +121,10 @@ def train() -> None:
         "--env-kwargs", type=str, nargs="+", action=StoreDict, help="Optional keyword argument to pass to the env constructor"
     )
     parser.add_argument(
+        "--env-conf", type=str, default=None,
+        help="Optional python module to import for environment configuration."
+    )
+    parser.add_argument(
         "--eval-env-kwargs",
         type=str,
         nargs="+",
@@ -223,6 +227,14 @@ def train() -> None:
             save_code=True,  # optional
         )
         args.tensorboard_log = f"runs/{run_name}"
+
+    if args.env_conf is not None:
+        try:
+            args.env_conf = importlib.import_module(args.env_conf).hyperparams[env_id]
+        except:
+            args.env_conf = None
+
+    args.env_kwargs = args.env_conf if args.env_conf is not None else args.env_kwargs
 
     exp_manager = ExperimentManager(
         args,
