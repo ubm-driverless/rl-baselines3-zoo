@@ -288,6 +288,7 @@ def train() -> None:
 
         # Normal training
         if model is not None:
+            print(f'Model architecture:\n{model.policy}')
             exp_manager.learn(model)
             exp_manager.save_trained_model(model)
     else:

@@ -202,6 +202,8 @@ def enjoy() -> None:  # noqa: C901
     # env.action_space = model.action_space
     # env.save(Path(model_path).parent / env_name / "vecnormalize.pkl")
 
+    print(f'Model architecture:\n{model.policy}')
+
     obs = env.reset()
 
     # Deterministic by default except for atari games
