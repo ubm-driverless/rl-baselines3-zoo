@@ -218,6 +218,14 @@ def enjoy() -> None:  # noqa: C901
     lstm_states = None
     episode_start = np.ones((env.num_envs,), dtype=bool)
 
+    # ------------------- Only valid for F110Env -------------------
+    # Counters for collision statistics
+    total_collisions = 0
+    episode_collisions = 0
+    all_episode_collisions = []
+    lap_times = []
+    # --------------------------------------------------------------
+
     generator = range(args.n_timesteps)
     if args.progress:
         if tqdm is None:
@@ -233,6 +241,24 @@ def enjoy() -> None:  # noqa: C901
                 deterministic=deterministic,
             )
             obs, reward, done, infos = env.step(action)
+
+            # ------------------- Only valid for F110Env -------------------
+            # Check for collision info from the environment
+            if args.n_envs == 1 and infos[0].get('collision', False):
+                # We only count the collision when the episode ends (done=True)
+                # to avoid double counting. The `done` flag will be True on the same step.
+                # If you want to count every step that is a collision, you can remove this check.
+                if done:
+                    episode_collisions += 1
+
+            # Check for completed lap info from the environment
+            if args.n_envs == 1:
+                completed_lap_time = infos[0].get('lap_time')
+                if completed_lap_time is not None and completed_lap_time not in [0, np.inf, -np.inf]:
+                    if args.verbose > 0:
+                        print(f"Lap Completed! Time: {completed_lap_time:.2f}s")
+                    lap_times.append(completed_lap_time)
+            # --------------------------------------------------------------
 
             episode_start = done
 
@@ -261,6 +287,13 @@ def enjoy() -> None:  # noqa: C901
                     episode_reward = 0.0
                     ep_len = 0
 
+                    # ------------------- Only valid for F110Env -------------------
+                    print(f"Episode Collisions: {episode_collisions}")
+                    all_episode_collisions.append(episode_collisions)
+                    total_collisions += episode_collisions
+                    episode_collisions = 0
+                    # --------------------------------------------------------------
+
                 # Reset also when the goal is achieved when using HER
                 if done and infos[0].get("is_success") is not None:
                     if args.verbose > 1:
@@ -282,6 +315,21 @@ def enjoy() -> None:  # noqa: C901
 
     if args.verbose > 0 and len(episode_lengths) > 0:
         print(f"Mean episode length: {np.mean(episode_lengths):.2f} +/- {np.std(episode_lengths):.2f}")
+
+    # ------------------- Only valid for F110Env -------------------
+    if args.verbose > 0 and len(all_episode_collisions) > 0:
+        print(f"Total Collisions over {len(episode_rewards)} episodes: {total_collisions}")
+        print(
+            f"Mean collisions per episode: {np.mean(all_episode_collisions):.2f} +/- {np.std(all_episode_collisions):.2f}")
+
+    if args.verbose > 0 and len(lap_times) > 0:
+        print(f"\n--- Lap Time Statistics ---")
+        print(f"Total Laps Completed: {len(lap_times)}")
+        print(f"Best Lap Time: {np.min(lap_times):.2f}s")
+        print(f"Mean Lap Time: {np.mean(lap_times):.2f}s +/- {np.std(lap_times):.2f}s")
+    elif args.verbose > 0:
+        print("\nNo full laps were completed.")
+    # --------------------------------------------------------------
 
     env.close()
 
